@@ -87,7 +87,8 @@ const start = () => {
             addRole();
         }
         else if (answer === "Update Employee Roles") {
-            console.log("Updating Employee Roles...");
+            // console.log("Updating Employee Roles...");
+            updateEmployeeRole();
         }  
         else if (answer === "Quit") {
             console.log("Quitting application...");
@@ -181,8 +182,7 @@ const addEmployee = () => {
                                 }
                             });
                         }
-                        
-                        // console.log(`newEmployeeCoWorkers: ${newEmployeeCoWorkers}`);
+
                     });
                 }
             );
@@ -272,14 +272,58 @@ const addDepartment = () => {
     });
 }
 
-const employeeListForManager = (role) => {
-    // Return employees of the role selected,
-    // For the user to choose a manager
-    // in the addEmployee function above
-    connection.query(
-        `SELECT employee.first_name, employee.last_name, department.name, role.title FROM ((employee INNER JOIN role ON employee.id = role.id) INNER JOIN department ON role.department_id = department.id))`
-    , function(err, res) {
+const updateEmployeeRole = () => {
+
+    updateThisEmployee = "";
+
+    connection.query(`SELECT first_name, last_name FROM employee`, function(err, res){
         if (err) throw err;
+        console.log(res); 
+        let employees = res.map(employee => {
+            return `${employee.first_name} ${employee.last_name}`
+        })
+        console.log(employees);
+        inquirer.prompt([
+            {
+                type: "list",
+                message: "Who's role would you like to update?",
+                name: "employee",
+                choices: employees
+            },
+            {
+                type: "list",
+                message: "What role do you want to assign?",
+                name: "role",
+                choices: roles
+            }
+        ]).then(response => {
+            // console.log(response.employee);
+            // console.log(response.role);
+            updateThisEmployee = response.employee;
+            updateThisEmployee = updateThisEmployee.split(" ");
+            console.log(updateThisEmployee);
+
+            connection.query(`SELECT id, title FROM role WHERE title = "${response.role}"`, function(err, res){
+                // console.log(res[0].id);
+
+                connection.query("UPDATE employee SET ? WHERE ? AND ?",[
+                    {
+                        role_id: res[0].id
+                    }, 
+                    {
+                        first_name: updateThisEmployee[0]
+                    },
+                    {
+                        last_name: updateThisEmployee[1]
+                    }], function(err) {
+                        if (err) throw error;
+                        console.log(`Successfully updated ${updateThisEmployee[0]} ${updateThisEmployee[1]} as a "${res[0].title}"`)
+                        start();
+                });
+            });
+
+            
+        });
     });
 }
 
