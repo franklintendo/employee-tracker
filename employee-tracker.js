@@ -1,6 +1,8 @@
 const inquirer = require("inquirer");
 const mysql = require("mysql");
 const cTable = require('console.table');
+const logo = require('asciiart-logo');
+const config = require('./package.json');
 
 // Initialize global variables to insert information
 // depending on user input
@@ -29,6 +31,20 @@ connection.connect(function(err){
     if (err) throw err;
     // console.log("connected as id " + connection.threadId + "\n");
 
+    console.log(
+        logo({
+            name: 'Employee Tracker',
+            font: 'ANSI Shadow',
+            lineChars: 10,
+            padding: 2,
+            margin: 3,
+            borderColor: 'grey',
+            logoColor: 'bold-green',
+            textColor: 'green',
+        })
+        .emptyLine()
+        .render()
+    );
     
     
 
