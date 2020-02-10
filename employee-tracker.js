@@ -1,5 +1,6 @@
 const inquirer = require("inquirer");
 const mysql = require("mysql");
+const cTable = require('console.table');
 
 var connection = mysql.createConnection({
     host: "localhost",
@@ -19,7 +20,7 @@ connection.connect(function(err){
     if (err) throw err;
     // console.log("connected as id " + connection.threadId + "\n");
     start();
-    // returnDepartments();
+    // viewAllEmployees();
 });
 
 
@@ -33,7 +34,7 @@ const start = () => {
         }
     ]).then(({ answer }) => {
         if (answer === "View All Employees") {
-            console.log("Viewing All Employees...");
+            viewAllEmployees();
         } 
         else if (answer === "View All Employees By Department") {
             console.log("Viewing All Employees By Department...");
@@ -42,7 +43,7 @@ const start = () => {
             console.log("Viewing All Employees By Role...");
         } 
         else if (answer === "Add Employee") {
-            console.log("Adding Employee...");
+            addEmployee();
         } 
         else if (answer === "Add Department") {
             addDepartment();
@@ -63,9 +64,39 @@ const start = () => {
 const addEmployee = () => {
     inquirer.prompt([
         {
-
+            type: "input",
+            message: "What is the employee's first name?",
+            name: "firstName"
+        },
+        {
+            type: "input",
+            message: "What is the employee's last name?",
+            name: "lastName"
+        },
+        {
+            type: "list",
+            message: "What is the employee's role?",
+            name: "role",
+            choices: returnRoles()
         }
+        // {
+        //     type: "list",
+        //     message: "Who is the employee's manager?",
+        //     name: "manager",
+        //     choices: functionHere()
+        // }
     ]).then(response => {
+
+        inquirer.prompt([
+            {
+                type: "list",
+                message: "Who is the employee's manager?",
+                name: "manager",
+                choices: employeeListForManager(response.role)
+            }  
+        ]).then(response => {
+            console.log(response.manager);
+        });
 
     });
 }
@@ -159,4 +190,44 @@ const returnDepartments = () => {
         // console.log(departments);
     });
     return departments;
+}
+
+const returnRoles = () => {
+    let roles = [];
+
+    connection.query("SELECT title FROM role", function(err, res) {
+        if (err) throw err;
+        res.forEach(role => {
+            roles.push(role.title);
+            // console.log(role.title);
+        });
+        // console.log(roles);
+    });
+
+    return roles;
+}
+
+const employeeListForManager = (role) => {
+    // Return employees of the role selected,
+    // For the user to choose a manager
+    // in the addEmployee function above
+    connection.query(
+        `SELECT employee.first_name, employee.last_name, department.name, role.title FROM ((employee INNER JOIN role ON employee.id = role.id) INNER JOIN department ON role.department_id = department.id))`
+    , function(err, res) {
+        if (err) throw err;
+    });
+}
+
+const viewAllEmployees = () => {
+    connection.query(
+        "SELECT employee.id, employee.first_name, employee.last_name, role.title, department.name, role.salary FROM ((department INNER JOIN role ON role.department_id = department.id) INNER JOIN employee ON employee.role_id = role.id);",
+        function(err, res) {
+            // console.log(res);
+            if (err) throw err;
+            const table = cTable.getTable(res);
+            console.log("\n");
+            console.log(table);
+
+            start();
+        });
 }
