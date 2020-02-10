@@ -8,7 +8,7 @@ const departments = [];
 const roles = [];
 let newEmployeeFirstName = "";
 let newEmployeeLastName = "";
-let newEmployeeRole = "";
+let newEmployeeRoleId = "";
 let newEmployeeCoWorkers = "";
 
 var connection = mysql.createConnection({
@@ -117,11 +117,11 @@ const addEmployee = () => {
     ]).then(response => {
         newEmployeeFirstName = response.firstName;
         newEmployeeLastName = response.lastName;
-        newEmployeeRole = response.role;
 
-        connection.query(`SELECT role.department_id, department.name FROM role INNER JOIN department ON role.department_id = department.id WHERE (role.title = "${response.role}")`, function(err, res) {
+        connection.query(`SELECT role.department_id, department.name, role.id FROM role INNER JOIN department ON role.department_id = department.id WHERE (role.title = "${response.role}")`, function(err, res) {
             if (err) throw err;
-            // console.log(res[0].name);
+            newEmployeeRoleId = res[0].id;
+            // console.log(res[0]);
             connection.query(
                 `SELECT employee.first_name, employee.last_name, employee.id
                 FROM ((department INNER JOIN role ON role.department_id = department.id) INNER JOIN employee ON employee.role_id = role.id) WHERE department.name = "${res[0].name}"`,
@@ -133,7 +133,7 @@ const addEmployee = () => {
                     filteredEmployees = employees.map(employee => {
                         return `${employee.first_name} ${employee.last_name}`
                     });
-                    
+
                     filteredEmployees.push("None");
                     // console.log(filteredEmployees);
 
@@ -146,11 +146,39 @@ const addEmployee = () => {
                         }  
                     ]).then(response => {
                         if (response.manager === "None") {
-                            console.log("Insert employee with manager id NULL");
+                            // console.log("Insert employee with manager id NULL");
+                            connection.query(`INSERT INTO employee SET ?`,
+                                {
+                                    first_name: newEmployeeFirstName,
+                                    last_name: newEmployeeLastName,
+                                    role_id: newEmployeeRoleId,
+                                    manager_id: null
+                                }, function(err) {
+                                    if (err) throw err;
+                                    console.log(`Successfully added ${newEmployeeFirstName} ${newEmployeeLastName}!`);
+                                    start();
+                                });
                         } else {
                             console.log(`Manager Selected: ${response.manager}`);
+
                             newEmployeeCoWorkers.forEach(coWorker => {
-                                console.log(coWorker);
+                                // console.log(coWorker);
+                                coWorkerName = `${coWorker.first_name} ${coWorker.last_name}`;
+                                // console.log(coWorkerName);
+                                if (coWorkerName === response.manager) {
+                                    connection.query(`INSERT INTO employee SET ?`,
+                                        {
+                                            first_name: newEmployeeFirstName,
+                                            last_name: newEmployeeLastName,
+                                            role_id: newEmployeeRoleId,
+                                            manager_id: coWorker.id
+                                        }, function(err) {
+                                            if (err) throw err;
+                                            console.log(`Successfully added ${newEmployeeFirstName} ${newEmployeeLastName}!`);
+                                            start();
+                                        }
+                                    );
+                                }
                             });
                         }
                         
