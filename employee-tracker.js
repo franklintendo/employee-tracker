@@ -2,8 +2,14 @@ const inquirer = require("inquirer");
 const mysql = require("mysql");
 const cTable = require('console.table');
 
+// Initialize global variables to insert information
+// depending on user input
 const departments = [];
 const roles = [];
+let newEmployeeFirstName = "";
+let newEmployeeLastName = "";
+let newEmployeeRole = "";
+let newEmployeeCoWorkers = "";
 
 var connection = mysql.createConnection({
     host: "localhost",
@@ -69,7 +75,7 @@ const start = () => {
             viewByDepartment();
         } 
         else if (answer === "View All Employees By Role") {
-            console.log("Viewing All Employees By Role...");
+            viewByRole();
         } 
         else if (answer === "Add Employee") {
             addEmployee();
@@ -108,23 +114,51 @@ const addEmployee = () => {
             name: "role",
             choices: roles
         }
-        // {
-        //     type: "list",
-        //     message: "Who is the employee's manager?",
-        //     name: "manager",
-        //     choices: functionHere()
-        // }
     ]).then(response => {
+        newEmployeeFirstName = response.firstName;
+        newEmployeeLastName = response.lastName;
+        newEmployeeRole = response.role;
 
-        inquirer.prompt([
-            {
-                type: "list",
-                message: "Who is the employee's manager?",
-                name: "manager",
-                choices: employeeListForManager(response.role)
-            }  
-        ]).then(response => {
-            console.log(response.manager);
+        connection.query(`SELECT role.department_id, department.name FROM role INNER JOIN department ON role.department_id = department.id WHERE (role.title = "${response.role}")`, function(err, res) {
+            if (err) throw err;
+            // console.log(res[0].name);
+            connection.query(
+                `SELECT employee.first_name, employee.last_name, employee.id
+                FROM ((department INNER JOIN role ON role.department_id = department.id) INNER JOIN employee ON employee.role_id = role.id) WHERE department.name = "${res[0].name}"`,
+                function(err, employees) {
+                    if (err) throw err;
+
+                    newEmployeeCoWorkers = employees;
+                    
+                    filteredEmployees = employees.map(employee => {
+                        return `${employee.first_name} ${employee.last_name}`
+                    });
+                    
+                    filteredEmployees.push("None");
+                    // console.log(filteredEmployees);
+
+                    inquirer.prompt([
+                        {
+                            type: "list",
+                            message: "Who is the employee's manager?",
+                            name: "manager",
+                            choices: filteredEmployees
+                        }  
+                    ]).then(response => {
+                        if (response.manager === "None") {
+                            console.log("Insert employee with manager id NULL");
+                        } else {
+                            console.log(`Manager Selected: ${response.manager}`);
+                            newEmployeeCoWorkers.forEach(coWorker => {
+                                console.log(coWorker);
+                            });
+                        }
+                        
+                        // console.log(`newEmployeeCoWorkers: ${newEmployeeCoWorkers}`);
+                    });
+                }
+            );
+
         });
 
     });
@@ -210,33 +244,6 @@ const addDepartment = () => {
     });
 }
 
-// Helper function to return a list of departments
-// const returnDepartments = () => {
-//     let departments = [];
-
-//     connection.query("SELECT name FROM department", function(err, res) {
-//         if (err) throw err;
-        
-//         res.forEach(department => {
-//             departments.push(department.name);
-//         });
-//     });
-//     return departments;
-// }
-
-// const returnRoles = () => {
-//     let roles = [];
-
-//     connection.query("SELECT title FROM role", function(err, res) {
-//         if (err) throw err;
-//         res.forEach(role => {
-//             roles.push(role.title);
-//         });
-//     });
-
-//     return roles;
-// }
-
 const employeeListForManager = (role) => {
     // Return employees of the role selected,
     // For the user to choose a manager
@@ -264,8 +271,6 @@ const viewAllEmployees = () => {
 
 const viewByDepartment = () => {
 
-    // let departments = returnDepartments();
-
     inquirer.prompt([
         {
             type: "list",
@@ -290,4 +295,31 @@ const viewByDepartment = () => {
         );
     });
 
+}
+
+const viewByRole = () => {
+
+    inquirer.prompt([
+        {
+            type: "list",
+            message: "Choose a role to view their employees",
+            choices: roles,
+            name: "role"
+        }
+    ]).then(response => {
+        // console.log(`Viewing employees of ${response.department}`);
+        connection.query(
+            `SELECT employee.id, employee.first_name, employee.last_name, role.title, department.name, role.salary
+            FROM ((department INNER JOIN role ON role.department_id = department.id) INNER JOIN employee ON employee.role_id = role.id) WHERE role.title = "${response.role}"`, 
+             function(err, res) {
+                // console.log(res);
+                if (err) throw err;
+                const table = cTable.getTable(res);
+                console.log("\n");
+                console.log(table);
+
+                start();
+             }
+        );
+    });
 }
